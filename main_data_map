@@ -1,0 +1,50 @@
+from camoufox.sync_api import Camoufox
+import time
+
+url = "https://www.google.com/maps/search/%D9%82%D8%B2%D9%88%DB%8C%D9%86+%D8%8C+%D8%B3%D9%88%D9%BE%D8%B1%D9%85%D8%A7%D8%B1%DA%A9%D8%AA%E2%80%AD%E2%80%AD/@36.2898665,49.9831087,13z"
+
+with Camoufox(headless=False) as browser:
+    page = browser.new_page()
+    page.goto(url, wait_until="domcontentloaded", timeout=120000)
+    page.wait_for_timeout(5000)
+
+    scroll_box = page.query_selector('div.m6QErb.DxyBCb.kA9KIf.dS8AEf.ecceSd')
+
+    seen_titles = set()  # جلوگیری از تکرار
+    counter = 1  # شمارنده برای شماره‌گذاری
+
+    if scroll_box:
+        box_bounds = scroll_box.bounding_box()
+        if box_bounds:
+            page.mouse.move(
+                box_bounds['x'] + box_bounds['width'] / 2,
+                box_bounds['y'] + box_bounds['height'] / 2
+            )
+            time.sleep(1)
+
+            last_height = 0
+            while True:
+                # اسکرول
+                page.mouse.wheel(0, 800)
+                time.sleep(1.5)
+
+                # استخراج داده‌ها
+                titles = page.query_selector_all('span[dir="rtl"]')
+                links = page.query_selector_all('a.hfpxzc')
+
+                with open("output.txt", "a", encoding="utf-8") as f:
+                    for t, l in zip(titles, links):
+                        title = t.inner_text().strip()
+                        href = l.get_attribute("href")
+                        if title and title not in seen_titles:
+                            seen_titles.add(title)
+                            line = f"{counter}. عنوان: {title}\nلینک: {href}\n{'-'*40}\n"
+                            print(line)
+                            f.write(line)
+                            counter += 1  # افزایش شمارنده
+
+                # بررسی پایان لیست
+                new_height = page.evaluate("(box) => box.scrollTop", scroll_box)
+                #if new_height == last_height:
+                #    break
+                #last_height = new_height
